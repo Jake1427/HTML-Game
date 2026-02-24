@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Jake's Pong Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      user-select: none;
+      color: #00BFFF;
+    }
+    h1 {
+      margin: 10px 0;
+      color: #00BFFF;
+    }
+    #menu, #fakeOnline, #preStart, #gameContainer {
+      display: none;
+      margin-top: 20px;
+    }
+    #menu button, #fakeOnline button {
+      background: black;
+      color: #00BFFF;
+      border: 2px solid #00BFFF;
+      padding: 8px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    #menu button:hover, #fakeOnline button:hover {
+      background: #00BFFF;
+      color: black;
+    }
+    #gameContainer {
+      display: inline-block;
+      padding: 10px;
+      border: 3px solid #00BFFF;
+    }
+    canvas {
+      background: black;
+      display: block;
+      margin: auto;
+    }
+    #timer {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+    #preStart span {
+      font-size: 50px;
+      color: #00BFFF;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jake's Pong Game</h1>
+  
+  <div id="menu">
+    <button id="btnAI">Play AI</button>
+    <button id="btn2P">2 Player Mode</button>
+    <button id="btnOnline">Online Mode</button>
+  </div>
+
+  <div id="fakeOnline">
+    <p id="loadingText">Player found 1/2<span id="dots"></span></p>
+  </div>
+
+  <div id="preStart">
+    <span id="countdown">3</span>
+  </div>
+
+  <div id="gameContainer">
+    <div id="timer">03:00</div>
+    <canvas id="pong" width="700" height="400"></canvas>
+    <button id="pauseBtn">Pause</button>
+  </div>
+
+  <script>
+    const menu = document.getElementById('menu');
+    const fakeOnline = document.getElementById('fakeOnline');
+    const preStart = document.getElementById('preStart');
+    const gameContainer = document.getElementById('gameContainer');
+    const countdownEl = document.getElementById('countdown');
+    const dotsEl = document.getElementById('dots');
+    const canvas = document.getElementById('pong');
+    const ctx = canvas.getContext('2d');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const timerDisplay = document.getElementById('timer');
+
+    let mode = "";
+
+    menu.style.display = 'block';
+
+    document.getElementById('btnAI').onclick = () => startGameMode('AI');
+    document.getElementById('btn2P').onclick = () => startGameMode('2P');
+    document.getElementById('btnOnline').onclick = () => startGameMode('ONLINE');
+
+    function startGameMode(selected){
+      mode = selected;
+      menu.style.display = 'none';
+
+      if(mode === 'ONLINE'){
+        fakeOnline.style.display = 'block';
+        simulateOnlineLoad();
+      } else {
+        startPreGame();
+      }
+    }
+
+    function simulateOnlineLoad(){
+      let dots = 0;
+      let interval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        dotsEl.textContent = '.'.repeat(dots);
+      }, 500);
+
+      let loadTime = 3000 + Math.random()*57000;
+      setTimeout(()=>{
+        clearInterval(interval);
+        fakeOnline.style.display = 'none';
+        startPreGame();
+      }, loadTime);
+    }
+
+    function startPreGame(){
+      preStart.style.display = 'block';
+      let count = 3;
+      countdownEl.textContent = count;
+      let interval = setInterval(()=>{
+        count--;
+        if(count>0) countdownEl.textContent = count;
+        else {
+          clearInterval(interval);
+          preStart.style.display = 'none';
+          startGame();
+        }
+      },1000);
+    }
+
+    let ball, player1, player2, keys, paused, totalTime, overtime, inOvertime, timerAccumulator=0;
+
+    function startGame(){
+      gameContainer.style.display = 'block';
+
+      ball = {x:canvas.width/2,y:canvas.height/2,radius:10,speedX:5,speedY:4};
+      player1 = {x:10,y:canvas.height/2-50,width:10,height:100,score:0};
+      player2 = {x:canvas.width-20,y:canvas.height/2-50,width:10,height:100,score:0};
+      keys = {};
+      paused = false;
+      totalTime = 180; // 3 min
+      overtime = 60;
+      inOvertime = false;
+
+      document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+      document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+      canvas.addEventListener("mousemove", e => {
+        if(mode==="AI" || mode==="ONLINE"){
+          const rect = canvas.getBoundingClientRect();
+          const mouseY = e.clientY - rect.top;
+          player1.y = mouseY - player1.height/2;
+          if(player1.y<0) player1.y=0;
+          if(player1.y+player1.height>canvas.height) player1.y=canvas.height-player1.height;
+        }
+      });
+
+      pauseBtn.onclick = () => paused = !paused;
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function drawRect(x,y,w,h){ ctx.fillStyle="#00BFFF"; ctx.fillRect(x,y,w,h);}
+    function drawCircle(x,y,r){ ctx.fillStyle="#00BFFF"; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.closePath(); ctx.fill();}
+    function drawText(text,x,y,color="#00BFFF"){ ctx.fillStyle=color; ctx.font="30px Arial"; ctx.fillText(text,x,y);}
+
+    function draw(){
+      ctx.fillStyle="black";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      for(let i=0;i<canvas.height;i+=30) drawRect(canvas.width/2-1,i,2,20);
+
+      drawRect(player1.x,player1.y,player1.width,player1.height);
+      drawRect(player2.x,player2.y,player2.width,player2.height);
+      drawCircle(ball.x,ball.y,ball.radius);
+
+      drawText(player1.score,canvas.width/4,40);
+      drawText(player2.score,3*canvas.width/4,40);
+    }
+
+    function resetBall(){
+      ball.x = canvas.width/2;
+      ball.y = canvas.height/2;
+      ball.speedX = 5*(Math.random()>0.5?1:-1);
+      ball.speedY = 4*(Math.random()>0.5?1:-1);
+    }
+
+    function update(){
+      if(paused) return;
+
+      ball.x+=ball.speedX;
+      ball.y+=ball.speedY;
+      if(ball.y+ball.radius>canvas.height || ball.y-ball.radius<0) ball.speedY*=-1;
+
+      if(ball.x-ball.radius<player1.x+player1.width && ball.y>player1.y && ball.y<player1.y+player1.height) ball.speedX*=-1;
+      if(ball.x+ball.radius>player2.x && ball.y>player2.y && ball.y<player2.y+player2.height) ball.speedX*=-1;
+
+      if(ball.x-ball.radius<0){ player2.score++; resetBall(); }
+      if(ball.x+ball.radius>canvas.width){ player1.score++; resetBall(); }
+
+      const speed = 6;
+      if(keys["w"]) player1.y -= speed;
+      if(keys["s"]) player1.y += speed;
+      if(player1.y<0) player1.y=0;
+      if(player1.y+player1.height>canvas.height) player1.y=canvas.height-player1.height;
+
+      if(mode==="2P"){
+        if(keys["arrowup"]) player2.y -= speed;
+        if(keys["arrowdown"]) player2.y += speed;
+        if(player2.y<0) player2.y=0;
+        if(player2.y+player2.height>canvas.height) player2.y=canvas.height-player2.height;
+      }
+    }
+
+    function computerMove(){
+      if(mode==="AI" || mode==="ONLINE"){
+        const styles = [{speed:3, offset:0},{speed:4, offset:20},{speed:5, offset:-10}];
+        const ai = styles[Math.floor(Math.random()*styles.length)];
+        let center = player2.y+player2.height/2 + ai.offset;
+        let moveSpeed = ai.speed;
+        if(Math.random()<0.25) moveSpeed = Math.random()*2-1;
+        if(center<ball.y) player2.y+=moveSpeed; else player2.y-=moveSpeed;
+        if(player2.y<0) player2.y=0;
+        if(player2.y+player2.height>canvas.height) player2.y=canvas.height-player2.height;
+      }
+    }
+
+    function updateTimer(delta){
+      if(paused) return;
+
+      timerAccumulator += delta;
+      if(timerAccumulator>=1000){
+        if(totalTime>0) totalTime--;
+        else if(totalTime===0 && player1.score===player2.score && !inOvertime){
+          totalTime=overtime;
+          inOvertime=true;
+        }
+
+        let color = totalTime<=30?"red":"#00BFFF";
+        timerDisplay.innerText = `${Math.floor(totalTime/60).toString().padStart(2,'0')}:${(totalTime%60).toString().padStart(2,'0')}`;
+        timerDisplay.style.color=color;
+
+        timerAccumulator = 0;
+      }
+    }
+
+    function checkEnd(){
+      if(totalTime<=0){
+        paused=true;
+        let winner="Tie!";
+        if(player1.score>player2.score) winner="Player 1 Wins!";
+        else if(player2.score>player1.score) winner="Player 2 Wins!";
+        ctx.fillStyle="black";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        drawText("Game Over!",canvas.width/2-90,canvas.height/2-30);
+        drawText(winner,canvas.width/2-90,canvas.height/2+10);
+      }
+    }
+
+    let lastTime = performance.now();
+    function gameLoop(timestamp){
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      update();
+      computerMove();
+      draw();
+      updateTimer(delta);
+      checkEnd();
+
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
