@@ -5,8 +5,8 @@ let ball = {
   x: canvas.width/2,
   y: canvas.height/2,
   radius: 10,
-  speedX: 4,
-  speedY: 4
+  speedX: 2,
+  speedY: 2
 };
 
 let paddleWidth = 10;
@@ -94,5 +94,6 @@ function gameLoop() {
   computerMove();
   draw();
 }
+
 
 setInterval(gameLoop, 1000/60);
